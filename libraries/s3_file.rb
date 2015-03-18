@@ -30,13 +30,19 @@ module S3FileLib
 
     url = "https://#{bucket}.s3.amazonaws.com" if url.nil?
 
-    response = client.head("#{url}#{path}", headers)
-    
-    etag = response.headers[:etag].gsub('"','')
-    digest = response.headers[:x_amz_meta_digest]
-    digests = digest.nil? ? {} : Hash[digest.split(",").map {|a| a.split("=")}]
+    begin
+      response = client.head("#{url}#{path}", headers)
+      
+      etag = response.headers[:etag].gsub('"','')
+      digest = response.headers[:x_amz_meta_digest]
+      digests = digest.nil? ? {} : Hash[digest.split(",").map {|a| a.split("=")}]
 
-    return {"md5" => etag}.merge(digests)
+      return {"md5" => etag}.merge(digests)
+    rescue => e
+      Chef::Log.warn e.response
+
+      return {"status" => response.code}
+    end
   end
 
   def self.get_from_s3(bucket,url,path,aws_access_key_id,aws_secret_access_key,token)
