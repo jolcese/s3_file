@@ -65,32 +65,39 @@ action :create do
   if download
     response = S3FileLib::get_from_s3(new_resource.bucket, new_resource.s3_url, remote_path, aws_access_key_id, aws_secret_access_key, token)
 
-    # not simply using the file resource here because we would have to buffer
-    # whole file into memory in order to set content this solves
-    # https://github.com/adamsb6/s3_file/issues/15
-    unless decryption_key.nil?
-      begin
-        decrypted_file = S3FileLib::aes256_decrypt(decryption_key,response.file.path)
-      rescue OpenSSL::Cipher::CipherError => e
-
-        Chef::Log.error("Error decrypting #{name}, is decryption key correct?")
-        Chef::Log.error("Error message: #{e.message}")
-
-        raise e
-      end
-
-      ::FileUtils.mv(decrypted_file.path, new_resource.path)
+    if response.code == 404
+      Chef::Log.warn 'File not found!'
+      Chef::Log.warn e.response
+      break
     else
-      ::FileUtils.mv(response.file.path, new_resource.path)
+
+      # not simply using the file resource here because we would have to buffer
+      # whole file into memory in order to set content this solves
+      # https://github.com/adamsb6/s3_file/issues/15
+      unless decryption_key.nil?
+        begin
+          decrypted_file = S3FileLib::aes256_decrypt(decryption_key,response.file.path)
+        rescue OpenSSL::Cipher::CipherError => e
+
+          Chef::Log.error("Error decrypting #{name}, is decryption key correct?")
+          Chef::Log.error("Error message: #{e.message}")
+
+          raise e
+        end
+
+        ::FileUtils.mv(decrypted_file.path, new_resource.path)
+      else
+        ::FileUtils.mv(response.file.path, new_resource.path)
+      end
     end
-  end
 
-  f = file new_resource.path do
-    action :create
-    owner new_resource.owner || ENV['user']
-    group new_resource.group || ENV['user']
-    mode new_resource.mode || '0644'
-  end
+    f = file new_resource.path do
+      action :create
+      owner new_resource.owner || ENV['user']
+      group new_resource.group || ENV['user']
+      mode new_resource.mode || '0644'
+    end
 
-  new_resource.updated_by_last_action(download || f.updated_by_last_action?)
+    new_resource.updated_by_last_action(download || f.updated_by_last_action?)
+  end
 end

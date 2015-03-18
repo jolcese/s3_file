@@ -50,6 +50,13 @@ module S3FileLib
     for attempts in 0..5
       begin
         response = client::Request.execute(:method => :get, :url => "#{url}#{path}", :raw_response => true, :headers => headers)
+
+        if response.code == 404
+          Chef::Log.warn 'File not found!'
+          Chef::Log.warn e.response
+          break
+        end
+
         break
       rescue => e
         if attempts < retries
