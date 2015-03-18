@@ -41,7 +41,7 @@ module S3FileLib
     rescue => e
       Chef::Log.warn e.response
 
-      return nil
+      return {"md5" => nil}
     end
   end
 
