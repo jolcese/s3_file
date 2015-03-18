@@ -37,11 +37,11 @@ module S3FileLib
       digest = response.headers[:x_amz_meta_digest]
       digests = digest.nil? ? {} : Hash[digest.split(",").map {|a| a.split("=")}]
 
-      return {"md5" => etag, "status" => response.code }.merge(digests)
+      return {"md5" => etag}.merge(digests)
     rescue => e
       Chef::Log.warn e.response
 
-      return {"status" => response.code}
+      return nil
     end
   end
 
