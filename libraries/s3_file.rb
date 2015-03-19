@@ -38,6 +38,7 @@ module S3FileLib
       digests = digest.nil? ? {} : Hash[digest.split(",").map {|a| a.split("=")}]
 
       return {"md5" => etag}.merge(digests)
+    
     rescue => e
       Chef::Log.warn e.response
 
@@ -50,22 +51,19 @@ module S3FileLib
     now, auth_string = get_s3_auth("GET", bucket,path,aws_access_key_id,aws_secret_access_key, token)
 
     url = "https://#{bucket}.s3.amazonaws.com" if url.nil?
-    
+
     headers = build_headers(now, auth_string, token)
     retries = 5
     for attempts in 0..5
       begin
         response = client::Request.execute(:method => :get, :url => "#{url}#{path}", :raw_response => true, :headers => headers)
-
-        if response.code == 404
-          Chef::Log.warn 'File not found!'
-          Chef::Log.warn e.response
-          break
-        end
-
         break
       rescue => e
         if attempts < retries
+          if e.to_s[/404/]
+            Chef::Log.warn 'File not found!'
+            break
+          end
           Chef::Log.warn e.response
           next
         else
